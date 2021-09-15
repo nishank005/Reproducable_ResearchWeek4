@@ -1,0 +1,117 @@
+
+Url_data <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FMain_data.csv.bz2"
+File_data <- "StormData.csv.bz2"
+if (!file.exists(File_data)) {
+        download.file(Url_data, File_data, mode = "wb")
+}
+
+Raw_data <- read.csv(file = File_data, header=TRUE, sep=",")
+```
+
+####Additional documentation on the database was provided here:  
+
+- [National Weather Service Storm Data Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf)
+- [National Climatic Data Center Storm Events FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf)
+- [Mentor’s comments in the Discussion Forum on the Course web-site](https://www.coursera.org/learn/reproducible-research/discussions/weeks/4/threads/IdtP_JHzEeaePQ71AQUtYw)  
+
+
+
+
+```{r, echo=TRUE, results='hide'}
+
+Main_data <- Raw_data
+Main_data$BGN_DATE <- strptime(Raw_data$BGN_DATE, "%m/%d/%Y %H:%M:%S")
+Main_data <- subset(Main_data, BGN_DATE > "1995-12-31")
+```
+
+
+
+
+```{r, echo=TRUE, results='hide'}
+Main_data <- subset(Main_data, select = c(EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
+```
+
+
+
+
+  
+EVTYPE – type of event  
+FATALITIES – number of fatalities  
+INJURIES – number of injuries  
+PROPDMG – the size of property damage  
+PROPDMGEXP - the exponent values for 'PROPDMG' (property damage)  
+CROPDMG - the size of crop damage  
+CROPDMGEXP - the exponent values for 'CROPDMG' (crop damage)  
+
+
+
+
+```{r, echo=TRUE, results='hide'}
+#cleaning event types names
+Main_data$EVTYPE <- toupper(Main_data$EVTYPE)
+# eliminating zero data
+Main_data <- Main_data[Main_data$FATALITIES !=0 | 
+                       Main_data$INJURIES !=0 | 
+                       Main_data$PROPDMG !=0 | 
+                       Main_data$CROPDMG !=0, ]
+```
+
+
+
+```{r, echo = TRUE, results='asis'}
+Health_data <- aggregate(cbind(FATALITIES, INJURIES) ~ EVTYPE, data = Main_data, FUN=sum)
+Health_data$PEOPLE_LOSS <- Health_data$FATALITIES + Health_data$INJURIES
+Health_data <- Health_data[order(Health_data$PEOPLE_LOSS, decreasing = TRUE), ]
+Top10_events_people <- Health_data[1:10,]
+knitr::kable(Top10_events_people, format = "markdown")
+```
+
+
+
+ 
+
+
+
+
+
+
+- numbers from one to ten  
+- letters  (B or b = Billion, M or m = Million, K or k = Thousand, H or h = Hundred)  
+- and symbols "-", "+" and "?" which refers to less than, greater than and low certainty. We have the option to ignore these three symbols altogether.  
+
+
+
+
+```{r, echo=TRUE, results = 'hide'}
+Main_data$PROPDMGEXP <- gsub("[Hh]", "2", Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- gsub("[Kk]", "3", Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- gsub("[Mm]", "6", Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- gsub("[Bb]", "9", Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- gsub("\\+", "1", Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- gsub("\\?|\\-|\\ ", "0",  Main_data$PROPDMGEXP)
+Main_data$PROPDMGEXP <- as.numeric(Main_data$PROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("[Hh]", "2", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("[Kk]", "3", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("[Mm]", "6", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("[Bb]", "9", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("\\+", "1", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- gsub("\\-|\\?|\\ ", "0", Main_data$CROPDMGEXP)
+Main_data$CROPDMGEXP <- as.numeric(Main_data$CROPDMGEXP)
+Main_data$PROPDMGEXP[is.na(Main_data$PROPDMGEXP)] <- 0
+Main_data$CROPDMGEXP[is.na(Main_data$CROPDMGEXP)] <- 0
+```
+  
+  
+
+
+
+
+```{r, echo=TRUE, results = 'hide', message = FALSE, warning = FALSE}
+#creating total damage values
+library(dplyr)
+Main_data <- mutate(Main_data, 
+                    PROPDMGTOTAL = PROPDMG * (10 ^ PROPDMGEXP), 
+                    CROPDMGTOTAL = CROPDMG * (10 ^ CROPDMGEXP))
+```
+  
+  
